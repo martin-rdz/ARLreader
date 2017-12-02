@@ -9,7 +9,7 @@ It is no quality checked reanalysis, but can be quite handy for first overview o
 One major downside is the dataformat. It's a custom binary format neither compatible with grib nor netcdf.
 A rough description is available at <https://www.ready.noaa.gov/gdas1.php> but it might not answer all questions regarding the format.
 The archive is split up into weekly files (w1 = days 1-7, w2 = days 8-14, w3 = days 15-21, w4 = days 22-28, w5 = rest of month).
-The grid is based on 1deg latitude and longitude (360*181 points) and starts at the lower left corner (0W, 90S) and runs to (1W, 90W).
+The grid is based on 1deg latitude and longitude (360\*181 points) and starts at the lower left corner (0W, 90S) and runs to (1W, 90W).
 Each file can be split up into records of 65210 bytes - a header of 50 bytes and a one byte entry per gridpoint (360*181). The different parameters at every height level and all height levels are simply chained together.
 The first record at every timestep contains a 50 byte header, followed by the grid definition and a list of all variables encoded in ASCII.
 Usually this record contains 1654 bytes of data. The remainder (63556 bytes) of this record is empty. 
@@ -29,6 +29,7 @@ The structure of the ASCII header is:
 | Value 1,1 | E14.7 | Unpacked data value at grid point 1,1 |
 
 and the grid definition:
+
 | Format | Information |
 | --- | --- | 
 | A4 | Data Source | 
