@@ -10,7 +10,14 @@ A more extensive description of the format is provided in: [Things to know when 
 Reading a 2d Field:
 ```python
 import ARLreader as Ar
-recinfo, grid, data = Ar.reader('data/gdas1.apr14.w1').load_heightlevel(2, 3, 0, 'RH2M')
+
+gdas = Ar.reader('data/gdas1.apr14.w1')
+print('indexinfo ', gdas.indexinfo)
+print('headerinfo ', gdas.headerinfo)
+for i, v in gdas.levels.items():
+    print(i, ' level ', v['level'], list(map(lambda x: x[0], v['vars'])))
+# load_heightlevel(day, houer, level, variable)
+recinfo, grid, data = gdas.load_heightlevel(2, 3, 0, 'RH2M')
 ```
 
 Read the profile at a given location an write it to a text file:
@@ -21,6 +28,13 @@ Ar.write_profile('testfile.txt', indexinfo, ind, (51.3, 12.4), profile, sfcdata)
 ```
 
 Get the filename from a datetime `Ar.fname_from_date(datetime.datetime(2014, 4, 3))`.
+
+### Installation 
+```
+git clone https://github.com/martin-181/ARLreader.git
+cd ARLreader
+python3 example.py
+```
 
 ### Tests
 `python3 -m pytest -v`
