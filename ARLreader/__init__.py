@@ -64,7 +64,7 @@ def wind_from_components(u, v):
 def fname_from_date(dt):
     months = {1: 'jan', 2: 'feb', 3: 'mar', 4: 'apr', 5: 'may', 6: 'jun',
               7: 'jul', 8: 'aug', 9: 'sep', 10: 'oct', 11: 'nov', 12: 'dec'}
-    week_no = (dt.day//8)+1
+    week_no = ((dt.day-1)//7)+1
     return 'gdas1.{}{}.w{}'.format(months[dt.month], dt.strftime('%y'), week_no)
 	
 		
