@@ -14,6 +14,8 @@ import collections
 import datetime
 
 
+gridtup = collections.namedtuple('gridtup', 'lats, lons')
+
 def vapor_press(p, mr):
     ''' e in same dimension as p'''
     return p * mr / (0.621980 + mr)
@@ -239,11 +241,10 @@ class reader():
             # print(levels)
             self.levels = levels
             
-            gridtup = collections.namedtuple('gridtup', 'lats, lons')
             self.grid = gridtup(lats=np.linspace(-90, 90, 181), 
                                 lons=np.linspace(0, 359, 360))
             
-    def load_heightlevel(self, day, hour, level, variable):
+    def load_heightlevel(self, day, hour, level, variable, truelon=True):
         """
         return the full field (recinfo, self.grid, data) for a given level and variable
         """
@@ -255,7 +256,15 @@ class reader():
         print('recordinfo ', recinfo)
         assert all([recinfo.name == variable, recinfo.d == day, recinfo.h == hour]), \
             'Something went wrong while reading file'
-        return recinfo, self.grid, data
+
+        grid = self.grid
+        if truelon:
+            print('convert to the true longitude coordinates')
+            data = np.roll(data, -181, axis=0)
+            lons = np.roll(self.grid.lons, -181, axis=0)
+            lons[lons > 180] -= 360.
+            grid = gridtup(lats=self.grid.lats, lons=lons)
+        return recinfo, grid, data
     
     def load_profile(self, day, hour, coord, sfc=False, interpolate=False):
         """
@@ -266,6 +275,8 @@ class reader():
         # HGTS TEMP UWND VWND WWND RELH
         #latindex = np.where(self.grid.lats == min(self.grid.lats, key= lambda t: abs(coord[0] - t)))[0].tolist()[0]
         #lonindex = np.where(self.grid.lons == min(self.grid.lons, key= lambda t: abs(coord[1] - t)))[0].tolist()[0]
+        if coord[1] < 0:
+            coord = (coord[0], coord[1]-360)
         assert np.all(np.diff(self.grid.lats) == 1)
         latindex = np.where(self.grid.lats == np.floor(coord[0]))[0].tolist()[0]
         lonindex = np.where(self.grid.lons == np.floor(coord[1]))[0].tolist()[0]
