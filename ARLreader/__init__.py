@@ -30,11 +30,14 @@ def rh_from_q(p, q, tK):
     rh = 100 * q/((1-q)*wsaet)
     return rh
 
-def rh_to_q(rH, tK, p):
-    ''' '''
+def rh_to_q(rh, tK, p):
+    ''' 
+    rh in %, temp in K, p in hPa
+    return q in kg/kg
+    '''
     e_saet = 6.112 * np.exp(17.67 * (tK - 273.15) / (tK - 29.65))
-    e = rh*e_saet
-    return 0.622 * e / p
+    e = (rh/100.)*e_saet
+    return (0.622*e) / (p - 0.78*e)
 
 def equipottemp(p, q, tK):
     ''' '''
