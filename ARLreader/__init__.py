@@ -279,7 +279,7 @@ class reader():
         #latindex = np.where(self.grid.lats == min(self.grid.lats, key= lambda t: abs(coord[0] - t)))[0].tolist()[0]
         #lonindex = np.where(self.grid.lons == min(self.grid.lons, key= lambda t: abs(coord[1] - t)))[0].tolist()[0]
         if coord[1] < 0:
-            coord = (coord[0], coord[1]-360)
+            coord = (coord[0], coord[1]+360)
         assert np.all(np.diff(self.grid.lats) == 1)
         latindex = np.where(self.grid.lats == np.floor(coord[0]))[0].tolist()[0]
         lonindex = np.where(self.grid.lons == np.floor(coord[1]))[0].tolist()[0]
