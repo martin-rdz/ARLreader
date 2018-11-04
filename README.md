@@ -41,5 +41,6 @@ python3 example.py
 
 ### License
 The code is partly based on a prior implementation in IDL by Patric Seifert.
-Copyright 2017, Martin Radenz
+
+Copyright 2017, Martin Radenz 
 [MIT License](http://www.opensource.org/licenses/mit-license.php)
