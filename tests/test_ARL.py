@@ -8,11 +8,11 @@ import ARLreader
 class TestARLreader():
     def test_filename(self):
         #assert 
-        assert ARLreader.fname_from_date(datetime.datetime(2014, 3, 15)) == 'gdas1.mar14.w2'
+        assert ARLreader.fname_from_date(datetime.datetime(2014, 3, 15)) == 'gdas1.mar14.w3'
         assert ARLreader.fname_from_date(datetime.datetime(2014, 5, 7)) == 'gdas1.may14.w1'
         assert ARLreader.fname_from_date(datetime.datetime(2014, 9, 8)) == 'gdas1.sep14.w2'
         assert ARLreader.fname_from_date(datetime.datetime(2014, 1, 28)) == 'gdas1.jan14.w4'
-        assert ARLreader.fname_from_date(datetime.datetime(2014, 7, 29)) == 'gdas1.jul14.w4'
+        assert ARLreader.fname_from_date(datetime.datetime(2014, 7, 29)) == 'gdas1.jul14.w5'
 
 
     def test_indexinfo(self):

@@ -17,30 +17,70 @@ import datetime
 gridtup = collections.namedtuple('gridtup', 'lats, lons')
 
 def vapor_press(p, mr):
-    ''' e in same dimension as p'''
+    '''
+    Args:
+        p: The path of the file to wrap
+        mr: mixing ratio
+
+    Returns:
+        water vapor partial pressure (same unit as p)
+    '''
     return p * mr / (0.621980 + mr)
 
+
 def dewpoint(e):
+    '''
+    Args:
+        e: water vapor partial pressure
+
+    Returns:
+        dewpoint temperature wrt to liquid water
+    '''
     val = np.log(e/ 6.112)
     return (243.5 * val) / (17.67 - val)
 
+
 def rh_from_q(p, q, tK):
+    '''
+    Args:
+        p: pressure
+        q: specific humidity
+        tK: temperature [K]
+
+    Returns:
+        relative humidity
+    '''
     e_saet = 6.112 * np.exp(17.67 * (tK - 273.15) / (tK - 29.65))
     wsaet = 0.621980 * e_saet / (p - e_saet)
     rh = 100 * q/((1-q)*wsaet)
     return rh
 
+
 def rh_to_q(rh, tK, p):
-    ''' 
-    rh in %, temp in K, p in hPa
-    return q in kg/kg
+    '''
+    Args:
+        rh: relative humidity [%]
+        tK: temperature [K]
+        p: pressure [hPa]
+
+    Returns:
+        specific humidity [kg/kg]
     '''
     e_saet = 6.112 * np.exp(17.67 * (tK - 273.15) / (tK - 29.65))
     e = (rh/100.)*e_saet
     return (0.622*e) / (p - 0.78*e)
 
+
 def equipottemp(p, q, tK):
-    ''' '''
+    '''
+    Args:
+        p: pressure [hPa]
+        q: specific humidity [kg/kg]
+        tK: temperature [K]
+
+    Returns:
+        equipotential temperature
+    '''
     mr = q/(1.-q)
     e = vapor_press(p, mr)
     td = dewpoint(e)
@@ -53,11 +93,28 @@ def equipottemp(p, q, tK):
     th_e = th_l * np.exp((3.036 / t_l - 0.00178) * mr * (1+ 0.448e-3 * mr))
     return th_e
 
+
 def pottemp(tK, p):
-    '''p given in hPa'''
+    '''
+    Args:
+        tK: temperature [K]
+        p: pressure [hPa]
+
+    Returns:
+        potential temperature
+    '''
     return tK*(1000./p)**(0.286)
 
+
 def wind_from_components(u, v):
+    '''
+    Args:
+        u: zonal wind component
+        v: meridional wind component
+
+    Returns:
+        wind direction, wind velocity
+    '''
     assert all([isinstance(u,np.ndarray), isinstance(v,np.ndarray)]), \
         'input needs to be numpy array' 
     wdir = 90. - (np.arctan2(-v, -u)*180./np.pi)
@@ -67,6 +124,13 @@ def wind_from_components(u, v):
 	
 	
 def fname_from_date(dt):
+    '''
+    Args:
+        dt (datetime): date
+
+    Returns:
+        name for the gdas file, eg "gdas1.oct14.w1"
+    '''
     months = {1: 'jan', 2: 'feb', 3: 'mar', 4: 'apr', 5: 'may', 6: 'jun',
               7: 'jul', 8: 'aug', 9: 'sep', 10: 'oct', 11: 'nov', 12: 'dec'}
     week_no = ((dt.day-1)//7)+1
@@ -74,9 +138,15 @@ def fname_from_date(dt):
 	
 		
 def split_format(fmtstring, s):
-    """
-    decode a bytestring and split and convert it by a given format code
+    """decode a bytestring and split and convert it by a given format code
     s: string, i: int, f: float, x: none
+
+    Args:
+        fmtstring: specifies the format of the string, eg 's4,i4,f14,f14'
+        s: string to decode
+
+    Returns:
+        list: with results
     """
     decoders = {'s': str, 'i': int, 'f': float, 'x': lambda x: ''}
     s = s.decode(encoding='ascii')
@@ -89,7 +159,14 @@ def split_format(fmtstring, s):
 
 
 def convertindexlist(l):
-    """convert the list of decoded ASCII headerinformation to a namedtupel"""
+    """convert the list of decoded ASCII headerinformation to a namedtupel
+
+    Args:
+        l (list): decoded header information 
+
+    Returns:
+        namedtupel: headerinfo
+    """
     recordinfo = collections.namedtuple('recordinfo', 
         'y m d h fc lvl grid name exp prec initval')
     return recordinfo(y=l[0], m=l[1], d=l[2], h=l[3],
@@ -98,7 +175,16 @@ def convertindexlist(l):
 
 
 def calc_no_within_ts(levels, lvl, varname):
-    """calculate the position for a given level and variable inside the current timestep"""
+    """calculate the position for a given level and variable inside the current timestep
+
+    Args:
+        levels: all levels
+        lvl: the level we are interested in
+        varname: the variable we are interested in
+
+    Returns:
+        no of steps
+    """
     steps = 0
     for i in range(24):
         if lvl == levels[i]['level']:
@@ -108,13 +194,29 @@ def calc_no_within_ts(levels, lvl, varname):
         steps += len(levels[i]['vars'])
     return steps
 
+
 def get_lvl_index(levels, lvl):
+    """index of a given level in levels"""
     for k, v in levels.items():
         if v['level'] == lvl:
             return k, v
 
+
 def calc_index(indexinfo, headerinfo, levels, day, hour, lvl, varname):
-    """ calculate the starting byte for a given time, level and variable """
+    """calculate the starting byte for a given time, level and variable
+
+    Args:
+        indexinfo: for the binary file
+        headerinfo: for the binary file
+        levels: all levels
+        day (int): selected day
+        hour (int): selected hour
+        lvl: selected level
+        varname: the variable we are interested in
+        
+    Returns:
+        starting byte
+    """
     rec_length = (headerinfo['Nx']*headerinfo['Ny'])+50
     no_vars = sum([len(v['vars']) for v in levels.values()])
     # important for each timestep you have to jup a whole record (index + header + variables (+empty) are replicated)
@@ -128,7 +230,17 @@ def calc_index(indexinfo, headerinfo, levels, day, hour, lvl, varname):
 
 
 def read_data(fname, bin_index, headerinfo, stopat=None):
-    """ read the data from a given file based on the starting index and decode the data with unpack_data()"""
+    """read the data from a given file based on the starting index and decode the data with unpack_data()
+
+    Args:
+        fname: filename
+        bin_index: starting bin
+        headerinfo: for the binary file
+        stopat (optional, int): stop at bin no
+        
+    Returns:
+        recordinfo, data
+    """
     rec_length = (headerinfo['Nx']*headerinfo['Ny'])+50
     with open(fname, mode='rb') as f:
         f.seek(bin_index, 0)
@@ -180,11 +292,24 @@ def interp(data, lats, lons, coord):
 def interpx(arr, grid, coord):
     return np.transpose((coord-grid[0])*(arr[:,1]-arr[:,0])/(grid[1]-grid[0])+arr[:,0])
 
+
 def interp2d(arr, grid0, grid1, coord):
+    """2d interpolation of the values between the grid cells"""
     val = interpx(arr, grid0, coord[0])
     return (coord[1]-grid1[0])*(val[1]-val[0])/(grid1[1]-grid1[0])+val[0]
 
+
 def write_profile(fname, headerinfo, ind, coord, profile, sfcdata):
+    """write the profile to a file
+
+    Args:
+        fname: filename
+        headerinfo: headerinfo
+        ind: index of grid point
+        coord: coordinates of grid point
+        profile: profile with variables
+        sfcdata: variables at surface
+    """
     potT = pottemp(profile['TEMP'], profile['PRSS'])
     wdir, wvel = wind_from_components(profile['UWND'], profile['VWND'])
     with open(fname, 'w') as f:
@@ -202,11 +327,13 @@ def write_profile(fname, headerinfo, ind, coord, profile, sfcdata):
 
 
 class reader():
+    """read the header of the gdas file
+    50 index bytes, 108 grid bytes and the vars at different heights
+
+    Args:
+        fname: filename
+    """
     def __init__(self, fname):
-        """
-        read the header of the gdas file
-        50 index bytes, 108 grid bytes and the vars at different heights
-        """
         self.fname = fname
         with open(fname,mode='rb') as f:
             content = f.read(3000)
@@ -246,10 +373,20 @@ class reader():
             
             self.grid = gridtup(lats=np.linspace(-90, 90, 181), 
                                 lons=np.linspace(0, 359, 360))
+
             
     def load_heightlevel(self, day, hour, level, variable, truelon=True):
-        """
-        return the full field (recinfo, self.grid, data) for a given level and variable
+        """return the full field (recinfo, self.grid, data) for a given level and variable
+
+        Args:
+            day (int): selected day
+            hour (int): selected hour
+            level: selected level
+            variable: selected variable
+            truelon (optional, bool): convert to true  lon
+            
+        Returns:
+            recordinfo, grid, data
         """
         assert hour%3 == 0, 'Other time resolution than 3h not supported yet.'
         varlist_at_level = list(map(lambda x: x[0], get_lvl_index(self.levels, level)[1]['vars']))
@@ -268,12 +405,19 @@ class reader():
             lons[lons > 180] -= 360.
             grid = gridtup(lats=self.grid.lats, lons=lons)
         return recinfo, grid, data
+
     
-    def load_profile(self, day, hour, coord, sfc=False, interpolate=False):
-        """
-        coord: (lat, lon)
-        
-        return a profile between 1000 and 100hPa.
+    def load_profile(self, day, hour, coord, sfc=False):
+        """return the full field (recinfo, self.grid, data) for a given level and variable
+
+        Args:
+            day (int): selected day
+            hour (int): selected hour
+            coord: coordinates (lat, lon)
+            sfc (optional, bool): include surface data
+            
+        Returns:
+            profile, sfcdata, indexinfo, (latindex, lonindex)
         """
         # HGTS TEMP UWND VWND WWND RELH
         #latindex = np.where(self.grid.lats == min(self.grid.lats, key= lambda t: abs(coord[0] - t)))[0].tolist()[0]

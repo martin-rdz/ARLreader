@@ -20,7 +20,7 @@ for i, v in gdas.levels.items():
 recinfo, grid, data = gdas.load_heightlevel(2, 3, 0, 'RH2M')
 ```
 
-Read the profile at a given location an write it to a text file:
+Read the profile at a given location an write it to a text file with `load_profile(day, hour, (lat, lon))`:
 ```python
 profile, sfcdata, indexinfo, ind = Ar.reader('data/gdas1.apr14.w1').load_profile(2, 3, (51.3, 12.4))
 print(profile)
@@ -40,5 +40,6 @@ python3 example.py
 `python3 -m pytest -v`
 
 ### License
+The code is partly based on a prior implementation in IDL by Patric Seifert.
 Copyright 2017, Martin Radenz
 [MIT License](http://www.opensource.org/licenses/mit-license.php)
