@@ -4,6 +4,8 @@ Python only library to read the NOAA ARLs packed format for HYSPLIT (<https://re
 Currently only wokring for the GDAS1 assimilation data (<https://www.ready.noaa.gov/gdas1.php>), which is also available from ARL (<ftp://arlftp.arlhq.noaa.gov/pub/archives/gdas1>).
 A more extensive description of the format is provided in: [Things to know when working with the ARL binary fomat](working_with_ARLformat.md)
 
+Currently only GDAS1 and the profiles of GDAS0p5 are working.
+
 
 ### Usage
 
@@ -28,6 +30,10 @@ Ar.write_profile('testfile.txt', indexinfo, ind, (51.3, 12.4), profile, sfcdata)
 ```
 
 Get the filename from a datetime `Ar.fname_from_date(datetime.datetime(2014, 4, 3))`.
+
+
+![example](examples.png)
+
 
 ### Installation 
 ```

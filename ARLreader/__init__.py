@@ -16,6 +16,21 @@ import datetime
 
 gridtup = collections.namedtuple('gridtup', 'lats, lons')
 
+def argnearest(array, value):
+    """find the index of the nearest value in a sorted array
+    for example time or range axis
+    Args:
+        array (np.array): sorted array with values
+        value: value to find
+    Returns:
+        index  
+    """
+    i = np.searchsorted(array, value) - 1
+    if not i == array.shape[0] - 1 \
+            and np.abs(array[i] - value) > np.abs(array[i + 1] - value):
+        i = i + 1
+    return i
+
 def vapor_press(p, mr):
     '''
     Args:
@@ -186,7 +201,7 @@ def calc_no_within_ts(levels, lvl, varname):
         no of steps
     """
     steps = 0
-    for i in range(24):
+    for i in range(len(levels)):
         if lvl == levels[i]['level']:
             #print('level reached ', lvl)
             steps += list(map(lambda x: x[0], levels[i]['vars'])).index(varname)
@@ -226,6 +241,7 @@ def calc_index(indexinfo, headerinfo, levels, day, hour, lvl, varname):
     no_at_timestep = calc_no_within_ts(levels, lvl, varname) * rec_length
     #print('no_full_slices', no_full_slices, 'no_at_timestep', no_at_timestep)
     # plus the initial record length
+    assert no_full_slices + no_at_timestep + rec_length > 0, 'calculated negative index, check your inputs'
     return no_full_slices + no_at_timestep + rec_length
 
 
@@ -284,6 +300,24 @@ def unpack_data(binarray, nx, ny, initval, exp, prec, stopat=None):
     return data
 
 
+def calc_p_from_sigma(sigma, p_sfc):
+    """calculate a levels pressure from sigma coordinate and ground pressure
+
+    Example from https://ready.arl.noaa.gov/data/archives/gdas0p5/readme_gdas0p5_info.txt:
+
+    The pressure level is defined as: P = A + .B*PRSS,
+    where PRSS is the surface pressure and A.B is defined as the level 
+    (ie., 16.853 = 869 hPa when the surface pressure is 1000 hPa
+    [P=16+0.853*1000])
+    """
+    A = np.floor(sigma)
+    B = sigma - A
+    print("A", A)
+    print("B", B)
+    print('pressure ', A+(B*p_sfc))
+    return  A+(B*p_sfc)
+
+
 def interp(data, lats, lons, coord):
     #print('interp ', data, coord, lats, lons)
     return interp2d(data, lons, lats, (coord[1], coord[0]))
@@ -336,7 +370,8 @@ class reader():
     def __init__(self, fname):
         self.fname = fname
         with open(fname,mode='rb') as f:
-            content = f.read(3000)
+            content = f.read(5000)
+            # for python struct s,c,p are chars
             unpacked = b''.join(struct.unpack(50*'s',content[:50]))
             index_info = split_format(7*'i2,'+'s4,i4,f14,f14', unpacked)
             indexinfo = convertindexlist(index_info)
@@ -349,9 +384,16 @@ class reader():
                           'minDatatime': header[2], 'griddef': header[3:15],
                           'Nx': header[15], 'Ny': header[16], 'Nz': header[17],
                           'Coordzflag': header[18], 'headerlength': header[19]}
+            print('raw header ', header)
             print('headerinfo ', headerinfo)
-            assert headerinfo['source'] == 'GDAS', 'other sources than gdas not supported yet'
+            assert headerinfo['source'] in ['GDAS', 'GFSG'], 'other sources than gdas not supported yet'
             self.headerinfo = headerinfo
+            if headerinfo['Nx'] == 720 and headerinfo['Ny'] == 361:
+                self.resolution = 0.5
+            elif headerinfo['Nx'] == 360 and headerinfo['Ny'] == 181:
+                self.resolution = 1.0
+            else:
+                raise ValueError("could not infer GDAS resolution")
             # read the variables in the different levels
             levels = {}
             cur = 158
@@ -359,6 +401,7 @@ class reader():
                 # unpack the varinfos
                 unpacked = b''.join(struct.unpack_from(8*"s",content[:], cur))
                 height_lvl, Nvars = split_format('f6,i2', unpacked)
+                #print(ih, height_lvl, Nvars, unpacked)
                 cur += 8
                 # print('at ', height_lvl, ' no vars ', Nvars)
                 levels[ih] = {'level': height_lvl, 'vars': []}
@@ -367,12 +410,13 @@ class reader():
                     unpacked = b''.join(struct.unpack_from(8*"s",content[:], cur))
                     cur += 8
                     varname, checksum = split_format('s4,i3,x1', unpacked)
+                    #print(ivar, varname, checksum)
                     levels[ih]['vars'].append((varname, checksum))
             # print(levels)
             self.levels = levels
             
-            self.grid = gridtup(lats=np.linspace(-90, 90, 181), 
-                                lons=np.linspace(0, 359, 360))
+            self.grid = gridtup(lats=np.linspace(-90, 90, headerinfo['Ny']), 
+                                lons=np.linspace(0, 359, headerinfo['Nx']))
 
             
     def load_heightlevel(self, day, hour, level, variable, truelon=True):
@@ -389,6 +433,7 @@ class reader():
             recordinfo, grid, data
         """
         assert hour%3 == 0, 'Other time resolution than 3h not supported yet.'
+        print(self.levels, level)
         varlist_at_level = list(map(lambda x: x[0], get_lvl_index(self.levels, level)[1]['vars']))
         assert variable in varlist_at_level, 'Variable not available at this level. Only: ' + str(varlist_at_level)
         bin_index = calc_index(self.indexinfo, self.headerinfo, self.levels, day, hour, level, variable)
@@ -422,16 +467,39 @@ class reader():
         # HGTS TEMP UWND VWND WWND RELH
         #latindex = np.where(self.grid.lats == min(self.grid.lats, key= lambda t: abs(coord[0] - t)))[0].tolist()[0]
         #lonindex = np.where(self.grid.lons == min(self.grid.lons, key= lambda t: abs(coord[1] - t)))[0].tolist()[0]
+        
+        #coord = (coord[0], 180+coord[1])
+        #assert np.all(np.diff(self.grid.lats) == 1)
         if coord[1] < 0:
             coord = (coord[0], coord[1]+360)
-        assert np.all(np.diff(self.grid.lats) == 1)
-        latindex = np.where(self.grid.lats == np.floor(coord[0]))[0].tolist()[0]
-        lonindex = np.where(self.grid.lons == np.floor(coord[1]))[0].tolist()[0]
-        print(latindex, lonindex)
+        print(coord)
+        latindex = argnearest(self.grid.lats, coord[0])
+        lonindex = argnearest(self.grid.lons, coord[1])
+        print("latindex, lonindex ", latindex, lonindex)
+        print(self.grid.lats[latindex])
+        print(self.grid.lons[lonindex])
         
-        profile = {'HGTS': np.zeros((23)), 'TEMP': np.zeros((23)), 'UWND': np.zeros((23)), 
-                   'VWND': np.zeros((23)), 'WWND': np.zeros((23)), 'RELH': np.zeros((23)),
-                   'PRSS': np.zeros((23)),}
+        zeros = np.zeros((self.headerinfo['Nz']-1))
+        if self.resolution == 1.0:
+            profile = {'HGTS': zeros.copy(), 'TEMP': zeros.copy(), 'UWND': zeros.copy(), 
+                        'VWND': zeros.copy(), 'WWND': zeros.copy(), 'RELH': zeros.copy(),
+                        'PRSS': zeros.copy(),}
+            press_variable = 'PRSS'
+        elif self.resolution == 0.5:
+            profile = {'HGTS': zeros.copy(), 'TEMP': zeros.copy(), 'UWND': zeros.copy(), 
+                       'VWND': zeros.copy(), 'SPHU': zeros.copy(),
+                       'PRES': zeros.copy(), 'SIGMA': zeros.copy()}
+            press_variable = 'SIGMA'
+
+            # get the sfc pressure
+            bin_index = calc_index(self.indexinfo, self.headerinfo, self.levels, day, hour, 0, 'PRSS')
+            recinfo, data = read_data(self.fname, bin_index, self.headerinfo, stopat=(latindex+1, lonindex+1))
+            sfc_pres = interp(data[lonindex:lonindex+2, latindex:latindex+2],
+                         self.grid.lats[latindex:latindex+2], self.grid.lons[lonindex:lonindex+2], coord)
+            bin_index = calc_index(self.indexinfo, self.headerinfo, self.levels, day, hour, 0, 'T02M')
+            recinfo, data = read_data(self.fname, bin_index, self.headerinfo, stopat=(latindex+1, lonindex+1))
+            sfc_temp = interp(data[lonindex:lonindex+2, latindex:latindex+2],
+                         self.grid.lats[latindex:latindex+2], self.grid.lons[lonindex:lonindex+2], coord)
 
         # read the indexinfo at this timestep
         rec_length = (self.headerinfo['Nx']*self.headerinfo['Ny'])+50
@@ -443,7 +511,7 @@ class reader():
         print('indexinfo at timestep', indexinfo)
         
         # skip the surface level
-        for i in range(1, 24):
+        for i in range(1, self.headerinfo['Nz']):
             for variable in map(lambda x: x[0], self.levels[i]['vars']):
             #for variable in ['HGTS']:
                 level = self.levels[i]['level']
@@ -451,10 +519,32 @@ class reader():
                 recinfo, data = read_data(self.fname, bin_index, self.headerinfo, stopat=(latindex+1, lonindex+1))
                 val = interp(data[lonindex:lonindex+2, latindex:latindex+2],
                              self.grid.lats[latindex:latindex+2], self.grid.lons[lonindex:lonindex+2], coord)
+                #val = data[lonindex, latindex]
                 #print(variable, level, data.shape, latindex, lonindex, data[lonindex, latindex])
                 #print('value nearest ', data[lonindex, latindex], ' interp ', val)
                 profile[variable][i-1] = val
-                profile['PRSS'][i-1] = level
+                profile[press_variable][i-1] = level
+
+
+        if self.resolution == 0.5:
+            # calculate the heights from hypsometric formula
+            print("p from sigma ", calc_p_from_sigma(profile["SIGMA"], sfc_pres))
+            temps = np.concatenate(([sfc_temp], profile['TEMP']))
+            print('temperatures', temps)
+            layer_mean_temp = temps[:-1]+(temps[1:]-temps[:-1])/2.
+            print('layer mean', layer_mean_temp)
+            pres = np.concatenate(([sfc_pres], profile['PRES']))
+            Rd = 287.04
+            g = 9.81
+            deltah = Rd/g*layer_mean_temp*np.log(pres[:-1]/pres[1:])
+            print('delta h', deltah)
+            print('heights', np.cumsum(deltah))
+            profile['HGTS'] = np.cumsum(deltah)
+            profile['PRSS'] = profile['PRES']
+            profile['RELH'] = rh_from_q(profile['PRSS'], profile['SPHU'], profile['TEMP'])
+
+            print(profile)
+            # calculate the relative humidity..
         
         sfcdata = {}
         if sfc:
