@@ -14,6 +14,19 @@ import collections
 import datetime
 
 
+try:
+    # compile and load the c-version
+    #import pyximport
+    #pyximport.install()
+    import ARLreader.fast_funcs as fast_funcs
+    fastfuncsavail = True
+    print("fast_funcs available")
+except:
+    # use the numpy only version
+    fastfuncsavail = False
+    print("fast_funcs not available")
+
+
 gridtup = collections.namedtuple('gridtup', 'lats, lons')
 
 def argnearest(array, value):
@@ -245,7 +258,7 @@ def calc_index(indexinfo, headerinfo, levels, day, hour, lvl, varname):
     return no_full_slices + no_at_timestep + rec_length
 
 
-def read_data(fname, bin_index, headerinfo, stopat=None):
+def read_data(fname, bin_index, headerinfo, stopat=(-1, -1)):
     """read the data from a given file based on the starting index and decode the data with unpack_data()
 
     Args:
@@ -261,40 +274,53 @@ def read_data(fname, bin_index, headerinfo, stopat=None):
     with open(fname, mode='rb') as f:
         f.seek(bin_index, 0)
         unpacked = b''.join(struct.unpack(50*'s', f.read(50)))
-        recinfo = convertindexlist(split_format(7*'i2,'+'s4,i4,f14,f14', unpacked))
+        recinfo = convertindexlist(split_format(6*'i2,'+'s2,s4,i4,f14,f14', unpacked))
         unpacked = struct.unpack((rec_length-50)*'B', f.read(rec_length-50))
-        data = unpack_data(np.array(unpacked), headerinfo['Nx'], headerinfo['Ny'], 
-               recinfo.initval, recinfo.exp, recinfo.prec, stopat=stopat)
+        if fastfuncsavail:
+            data = fast_funcs.unpack_data(np.array(unpacked), headerinfo['Nx'], headerinfo['Ny'], 
+                recinfo.initval, recinfo.exp, recinfo.prec, stopat=stopat)
+        else:
+            data = unpack_data(np.array(unpacked), headerinfo['Nx'], headerinfo['Ny'], 
+                recinfo.initval, recinfo.exp, recinfo.prec, stopat=stopat)
+
     return recinfo, data
 
-def unpack_data(binarray, nx, ny, initval, exp, prec, stopat=None):
+
+def unpack_data(binarray, nx, ny, initval, exp, prec, stopat=(-1, -1)):
     """ unpack the binary data with the option to stop at a given index """
     data = np.zeros((nx,ny))
     value_old = initval
-    
-    nx_max = nx
-    ny_max = ny
-    if stopat != None:
-        nx_max = stopat[0]
-        ny_max = stopat[1]
+
+    if stopat != (-1, -1):
+        nx_min = max(stopat[1]-1,0)
+        nx_max = min(stopat[1]+1,nx)
+        ny_min = max(stopat[0]-1,0)
+        ny_max = min(stopat[0]+1,ny)
+    else:
+        nx_min = 0
+        nx_max = nx
+        ny_min = 0
+        ny_max = ny
+    # print("nx ", nx_min, nx_max, " ny ", ny_min, ny_max)
    
-    for j in range(ny):
+    for j in range(ny_max):
         ri = j*nx
-        data[0,j] = (binarray[ri]-127)/(2**(7-exp)) + value_old
+        data[0,j] = ((binarray[ri]-127)/(2**float(7-exp))) + value_old
+
         value_old = data[0,j]
 
-    for j in range(ny):
+    for j in range(ny_min, ny_max):
         value_old = data[0,j]
-        for i in range(1,nx):
+        for i in range(1,nx_max):
             ri = j*nx + i
             #print(j,i, '->', ri)
-            val = (binarray[ri]-127)/(2**(7-exp)) + value_old
+            val = (binarray[ri]-127)/(2**float(7-exp)) + value_old
             value_old = val
             if abs(val) < prec:
                 #print(abs(val), '<', prec)
                 val = 0.
             data[i,j] = val
-            if stopat != None:
+            if stopat != (-1, -1):
                 if i >= stopat[0] and j >= stopat[1]:
                     break
     return data
@@ -353,8 +379,32 @@ def write_profile(fname, headerinfo, ind, coord, profile, sfcdata):
         f.write('\n\n\n')
         f.write('        3D Fields \n')
         f.write('        HGTS  TEMP  UWND  VWND  WWND  RELH     TPOT  WDIR  WSPD\n')
-        f.write('           m    oC   m/s   m/s  mb/h     %       oK   deg   m/s\n')
-        for i in range(23):
+        f.write('           m    oC   m/s   m/s   hPa     %       oK   deg   m/s\n')
+        for i in range(profile['VWND'].shape[0]):
+            f.write('  {:4.0f} {:5.0f} {:5.1f} {:5.1f} {:5.1f} {:5.1f} {:5.1f}    {:5.1f} {:5.1f}  {:4.1f}\n'.format(
+                profile['PRSS'][i], profile['HGTS'][i], profile['TEMP'][i]-273.15, profile['UWND'][i], profile['VWND'][i],
+                profile['WWND'][i]*3600, profile['RELH'][i], potT[i], wdir[i], wvel[i]))
+
+
+def write_profile_plain(fname, headerinfo, ind, coord, profile, sfcdata):
+    """write the profile to a file
+
+    Args:
+        fname: filename
+        headerinfo: headerinfo
+        ind: index of grid point
+        coord: coordinates of grid point
+        profile: profile with variables
+        sfcdata: variables at surface
+    """
+    potT = pottemp(profile['TEMP'], profile['PRSS'])
+    wdir, wvel = wind_from_components(profile['UWND'], profile['VWND'])
+    with open(fname, 'w') as f:
+        f.write('# Profile Time:  {:2d} {:2d} {:2d} {:2d}  0\n'.format(headerinfo.y, headerinfo.m, headerinfo.d, headerinfo.h))
+        f.write('# Used Nearest Grid Point ( {:3d}, {:3d}) to Lat:   {:5.2f}, Lon:    {:5.2f}\n'.format(ind[1], ind[0], coord[0], coord[1]))
+        f.write('# PRESS HGTS  TEMP  UWND  VWND  WWND  RELH     TPOT  WDIR  WSPD\n')
+        f.write('#   hPa    m    oC   m/s   m/s   hPa     %       oK   deg   m/s\n')
+        for i in range(profile['VWND'].shape[0]):
             f.write('  {:4.0f} {:5.0f} {:5.1f} {:5.1f} {:5.1f} {:5.1f} {:5.1f}    {:5.1f} {:5.1f}  {:4.1f}\n'.format(
                 profile['PRSS'][i], profile['HGTS'][i], profile['TEMP'][i]-273.15, profile['UWND'][i], profile['VWND'][i],
                 profile['WWND'][i]*3600, profile['RELH'][i], potT[i], wdir[i], wvel[i]))
@@ -373,7 +423,7 @@ class reader():
             content = f.read(5000)
             # for python struct s,c,p are chars
             unpacked = b''.join(struct.unpack(50*'s',content[:50]))
-            index_info = split_format(7*'i2,'+'s4,i4,f14,f14', unpacked)
+            index_info = split_format(6*'i2,'+'s2,s4,i4,f14,f14', unpacked)
             indexinfo = convertindexlist(index_info)
             print('indexinfo ', indexinfo)
             self.indexinfo = indexinfo
@@ -386,12 +436,16 @@ class reader():
                           'Coordzflag': header[18], 'headerlength': header[19]}
             print('raw header ', header)
             print('headerinfo ', headerinfo)
-            assert headerinfo['source'] in ['GDAS', 'GFSG'], 'other sources than gdas not supported yet'
+            assert headerinfo['source'] in ['GDAS', 'GFSG', 'GFSQ'], 'other sources than gdas not supported yet'
             self.headerinfo = headerinfo
             if headerinfo['Nx'] == 720 and headerinfo['Ny'] == 361:
                 self.resolution = 0.5
             elif headerinfo['Nx'] == 360 and headerinfo['Ny'] == 181:
                 self.resolution = 1.0
+            # actual 1440 grid points
+            elif headerinfo['Nx'] == 440 and headerinfo['Ny'] == 721:
+                self.resolution = 0.25
+                headerinfo['Nx'] = 1440
             else:
                 raise ValueError("could not infer GDAS resolution")
             # read the variables in the different levels
@@ -437,6 +491,7 @@ class reader():
         varlist_at_level = list(map(lambda x: x[0], get_lvl_index(self.levels, level)[1]['vars']))
         assert variable in varlist_at_level, 'Variable not available at this level. Only: ' + str(varlist_at_level)
         bin_index = calc_index(self.indexinfo, self.headerinfo, self.levels, day, hour, level, variable)
+        print("bin index", bin_index)
         recinfo, data = read_data(self.fname, bin_index, self.headerinfo)
         print('recordinfo ', recinfo)
         assert all([recinfo.name == variable, recinfo.d == day, recinfo.h == hour]), \
@@ -501,25 +556,43 @@ class reader():
             sfc_temp = interp(data[lonindex:lonindex+2, latindex:latindex+2],
                          self.grid.lats[latindex:latindex+2], self.grid.lons[lonindex:lonindex+2], coord)
 
+        elif self.resolution == 0.25:
+            profile = {'HGTS': zeros.copy(), 'TEMP': zeros.copy(), 'UWND': zeros.copy(), 
+                       'VWND': zeros.copy(), 'WWND': zeros.copy(), 'RELH': zeros.copy(),
+                       'PRES': zeros.copy(), 'SIGMA': zeros.copy()}
+            press_variable = 'SIGMA'
+
+            # get the sfc pressure
+            bin_index = calc_index(self.indexinfo, self.headerinfo, self.levels, day, hour, 0, 'PRSS')
+            recinfo, data = read_data(self.fname, bin_index, self.headerinfo, stopat=(latindex+1, lonindex+1))
+            sfc_pres = interp(data[lonindex:lonindex+2, latindex:latindex+2],
+                         self.grid.lats[latindex:latindex+2], self.grid.lons[lonindex:lonindex+2], coord)
+            bin_index = calc_index(self.indexinfo, self.headerinfo, self.levels, day, hour, 0, 'T02M')
+            recinfo, data = read_data(self.fname, bin_index, self.headerinfo, stopat=(latindex+1, lonindex+1))
+            sfc_temp = interp(data[lonindex:lonindex+2, latindex:latindex+2],
+                         self.grid.lats[latindex:latindex+2], self.grid.lons[lonindex:lonindex+2], coord)
+        else: 
+            raise ValueError("unknown resolution")
         # read the indexinfo at this timestep
         rec_length = (self.headerinfo['Nx']*self.headerinfo['Ny'])+50
         bin_index = calc_index(self.indexinfo, self.headerinfo, self.levels, day, hour, 0, 'PRSS') - rec_length
         with open(self.fname, mode='rb') as f:
             f.seek(bin_index, 0)
             unpacked = b''.join(struct.unpack(50*'s', f.read(50)))
-            indexinfo = convertindexlist(split_format(7*'i2,'+'s4,i4,f14,f14', unpacked))
+            indexinfo = convertindexlist(split_format(6*'i2,'+'s2,s4,i4,f14,f14', unpacked))
         print('indexinfo at timestep', indexinfo)
         
         # skip the surface level
         for i in range(1, self.headerinfo['Nz']):
+            print("reading level ", i, " of ", self.headerinfo['Nz'])
             for variable in map(lambda x: x[0], self.levels[i]['vars']):
             #for variable in ['HGTS']:
                 level = self.levels[i]['level']
                 bin_index = calc_index(self.indexinfo, self.headerinfo, self.levels, day, hour, level, variable)
                 recinfo, data = read_data(self.fname, bin_index, self.headerinfo, stopat=(latindex+1, lonindex+1))
-                val = interp(data[lonindex:lonindex+2, latindex:latindex+2],
-                             self.grid.lats[latindex:latindex+2], self.grid.lons[lonindex:lonindex+2], coord)
-                #val = data[lonindex, latindex]
+                #val = interp(data[lonindex:lonindex+2, latindex:latindex+2],
+                #             self.grid.lats[latindex:latindex+2], self.grid.lons[lonindex:lonindex+2], coord)
+                val = data[lonindex, latindex]
                 #print(variable, level, data.shape, latindex, lonindex, data[lonindex, latindex])
                 #print('value nearest ', data[lonindex, latindex], ' interp ', val)
                 profile[variable][i-1] = val
@@ -542,6 +615,26 @@ class reader():
             profile['HGTS'] = np.cumsum(deltah)
             profile['PRSS'] = profile['PRES']
             profile['RELH'] = rh_from_q(profile['PRSS'], profile['SPHU'], profile['TEMP'])
+
+            print(profile)
+            # calculate the relative humidity..
+
+        if self.resolution == 0.25:
+            # calculate the heights from hypsometric formula
+            print("p from sigma ", calc_p_from_sigma(profile["SIGMA"], sfc_pres))
+            temps = np.concatenate(([sfc_temp], profile['TEMP']))
+            print('temperatures', temps)
+            layer_mean_temp = temps[:-1]+(temps[1:]-temps[:-1])/2.
+            print('layer mean', layer_mean_temp)
+            pres = np.concatenate(([sfc_pres], profile['PRES']))
+            Rd = 287.04
+            g = 9.81
+            deltah = Rd/g*layer_mean_temp*np.log(pres[:-1]/pres[1:])
+            deltah = np.abs(deltah)
+            print('delta h', deltah)
+            print('heights', np.cumsum(deltah))
+            profile['HGTS'] = np.cumsum(deltah)
+            profile['PRSS'] = profile['PRES']
 
             print(profile)
             # calculate the relative humidity..

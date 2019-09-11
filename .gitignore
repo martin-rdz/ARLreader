@@ -15,3 +15,8 @@ predev
 .spyderworkspace
 *.lprof
 *.lprof~
+
+build/
+
+*.so
+*.c
