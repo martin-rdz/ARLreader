@@ -20,3 +20,5 @@ build/
 
 *.so
 *.c
+
+my_example/

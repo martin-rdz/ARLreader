@@ -50,7 +50,8 @@ python3 example.py
 **Installation within a new virtual environment**
 
 ```bash
-conda create -n ARLreader   # you can choose other names as well, but using the consistent name during the installation.
+conda create -n ARLreader   # you can choose other names as well, 
+                            # but using the consistent name during the installation.
 activate ARLreader   # activate the virtual environement
 
 conda install python=3.6   # install python, shipped with `pip`, `setuptools`...
