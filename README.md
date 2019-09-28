@@ -35,11 +35,29 @@ Get the filename from a datetime `Ar.fname_from_date(datetime.datetime(2014, 4, 
 ![example](examples.png)
 
 
+### Requirements
+
+[`Anaconda3`](https://www.anaconda.com/distribution/) can make your life easier, especially when you were mad with using different python versions. But it's free of your choice.
+
 ### Installation 
+
 ```
 git clone https://github.com/martin-181/ARLreader.git
 cd ARLreader
 python3 example.py
+```
+
+**Installation within a new virtual environment**
+
+```bash
+conda create -n ARLreader   # you can choose other names as well, 
+                            # but using the consistent name during the installation.
+activate ARLreader   # activate the virtual environement
+
+conda install python=3.6   # install python, shipped with `pip`, `setuptools`...
+git clone https://github.com/martin-181/ARLreader.git   # download the code repository
+cd ARLreader
+pip install -r requirements.txt   # install the dependencies for ARLreader
 ```
 
 ### Tests
