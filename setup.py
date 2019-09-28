@@ -2,8 +2,9 @@
 
 from distutils.core import setup
 from Cython.Build import cythonize
+import numpy
 
 setup(
-    ext_modules = cythonize("ARLreader/fast_funcs.pyx")
-    #ext_modules = cythonize("ARLreader/fast_funcs.pyx", compiler_directives={'linetrace': True, 'binding': True})
+    ext_modules=cythonize("ARLreader/fast_funcs.pyx"),
+    include_dirs=[numpy.get_include()]
 )
