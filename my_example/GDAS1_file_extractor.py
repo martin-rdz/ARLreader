@@ -1,6 +1,6 @@
 import os
 import sys
-sys.path.append('c:\\Users\\zhenping\\Documents\\Python Scripts\\MyLib\\ARLreader\\')
+sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 import ARLreader as Ar
 from ftplib import FTP
 import argparse
