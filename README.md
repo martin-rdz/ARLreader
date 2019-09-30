@@ -34,20 +34,15 @@ Get the filename from a datetime `Ar.fname_from_date(datetime.datetime(2014, 4, 
 
 ![example](examples.png)
 
-
 ### Requirements
 
 [`Anaconda3`](https://www.anaconda.com/distribution/) can make your life easier, especially when you were mad with using different python versions. But it's free of your choice.
 
 ### Installation 
 
-```
-git clone https://github.com/martin-181/ARLreader.git
-cd ARLreader
-python3 example.py
-```
-
 **Installation within a new virtual environment**
+
+create a new virtual environment
 
 ```bash
 conda create -n ARLreader   # you can choose other names as well, 
@@ -58,6 +53,56 @@ conda install python=3.6   # install python, shipped with `pip`, `setuptools`...
 git clone https://github.com/martin-181/ARLreader.git   # download the code repository
 cd ARLreader
 pip install -r requirements.txt   # install the dependencies for ARLreader
+```
+
+compile ARLreader
+
+```bash
+python setup.py install
+```
+
+### Usage
+
+```text
+ARLreader -h   # prompt up the help
+```
+
+Below is the help messages for using `ARLreader`:
+```text
+usage: gdas1_ext [-h] [-s START_TIME] [-e END_TIME] [--latitude LATITUDE]
+                 [--longitude LONGITUDE] [--station STATION]
+                 [-f GLOBAL_FOLDER] [-o PROFILE_FOLDER] [--force]
+
+extract the GDAS1 profile from GDAS1 global binary data.
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -s START_TIME, --start_time START_TIME
+                        start time of your interests (yyyymmdd-HHMMSS).
+                        e.g.20151010-120000
+  -e END_TIME, --end_time END_TIME
+                        stop time of your interests (yyyymmdd-HHMMSS).
+                        e.g.20151010-120000
+  --latitude LATITUDE   latitude of your station. (-90, 90).
+                        Default: 30.533721
+  --longitude LONGITUDE
+                        longitude of your station. (0, 360).
+                        Default: 114.367216
+  --station STATION     station name.
+                        Default: wuhan
+  -f GLOBAL_FOLDER, --global_folder GLOBAL_FOLDER
+                        folder for saving the GDAS1 global files.
+                        e.g., 'C:\Users\zhenping\Desktop\global'
+  -o PROFILE_FOLDER, --profile_folder PROFILE_FOLDER
+                        folder for saving the extracted profiles
+                        e.g., 'C:\Users\zhenping\Desktop\wuhan'
+  --force               force to download the GDAS1 global dataset (not suggested)
+```
+
+**setup the reader for a new station**
+
+```
+ARLreader -s 20190920-000000 -e 20190923-000000 --latitude 51.35 --longitude 12.35 --station leipzig -f /Users/zhenping/Data/global -o /Users/zhenping/Data/leipzig
 ```
 
 ### Tests
