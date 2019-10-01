@@ -4,10 +4,40 @@ Python only library to read the NOAA ARLs packed format for HYSPLIT (<https://re
 Currently only wokring for the GDAS1 assimilation data (<https://www.ready.noaa.gov/gdas1.php>), which is also available from ARL (<ftp://arlftp.arlhq.noaa.gov/pub/archives/gdas1>).
 A more extensive description of the format is provided in: [Things to know when working with the ARL binary fomat](working_with_ARLformat.md)
 
-Currently only GDAS1 and the profiles of GDAS0p5 are working.
+Currently only GDAS1 and the profiles of GDAS0p5 and GDAS0p25 are working.
+
+### Requirements
+
+Either python3 or [`Anaconda3`](https://www.anaconda.com/distribution/) with the libraries specified in [requirements.txt](requirements.txt).
+
+### Installation 
+
+**Installation within a new conda virtual environment**
+
+create a new virtual environment (here for anaconda)
+
+```bash
+conda create -n ARLreader   # you can choose other names as well, 
+                            # but using the consistent name during the installation.
+activate ARLreader   # activate the virtual environement
+
+conda install python=3.6   # install python, shipped with `pip`, `setuptools`...
+git clone https://github.com/martin-181/ARLreader.git   # download the code repository
+cd ARLreader
+pip install -r requirements.txt   # install the dependencies for ARLreader
+```
+
+compile the fast reading functions (optional)
+
+```bash
+python setup.py install
+```
+
 
 
 ### Usage
+
+#### python interface
 
 Reading a 2d Field:
 ```python
@@ -34,34 +64,9 @@ Get the filename from a datetime `Ar.fname_from_date(datetime.datetime(2014, 4, 
 
 ![example](examples.png)
 
-### Requirements
 
-[`Anaconda3`](https://www.anaconda.com/distribution/) can make your life easier, especially when you were mad with using different python versions. But it's free of your choice.
 
-### Installation 
-
-**Installation within a new virtual environment**
-
-create a new virtual environment
-
-```bash
-conda create -n ARLreader   # you can choose other names as well, 
-                            # but using the consistent name during the installation.
-activate ARLreader   # activate the virtual environement
-
-conda install python=3.6   # install python, shipped with `pip`, `setuptools`...
-git clone https://github.com/martin-181/ARLreader.git   # download the code repository
-cd ARLreader
-pip install -r requirements.txt   # install the dependencies for ARLreader
-```
-
-compile ARLreader
-
-```bash
-python setup.py install
-```
-
-### Usage
+#### command line interface
 
 ```text
 ARLreader -h   # prompt up the help
@@ -102,7 +107,7 @@ optional arguments:
 **setup the reader for a new station**
 
 ```
-ARLreader -s 20190920-000000 -e 20190923-000000 --latitude 51.35 --longitude 12.35 --station leipzig -f /Users/zhenping/Data/global -o /Users/zhenping/Data/leipzig
+ARLreader -s 20190920-000000 -e 20190923-000000 --latitude 51.35 --longitude 12.35 --station leipzig -f <data_folder> -o <output_folder>
 ```
 
 ### Tests
@@ -111,5 +116,5 @@ ARLreader -s 20190920-000000 -e 20190923-000000 --latitude 51.35 --longitude 12.
 ### License
 The code is partly based on a prior implementation in IDL by Patric Seifert.
 
-Copyright 2017, Martin Radenz 
+Copyright 2017, Martin Radenz, Yin Zhenping
 [MIT License](http://www.opensource.org/licenses/mit-license.php)
