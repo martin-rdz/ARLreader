@@ -12,7 +12,58 @@ import numpy as np
 import struct
 import collections
 import datetime
+import sys
+import os
+import logging
+from ftplib import FTP
+import argparse
+from argparse import RawTextHelpFormatter
 
+
+# Constants Definition
+gridtup = collections.namedtuple('gridtup', 'lats, lons')
+FTPHost = 'arlftp.arlhq.noaa.gov'   # ftp link of the ARL server
+FTPFolder = 'pub/archives/gdas1'   # folder for the GDAS1 data
+LOG_MODE = 'DEBUG'
+LOGFILE = 'log'
+PROJECTDIR = os.path.dirname(os.path.realpath(__file__))
+
+
+def logger_def():
+    """
+    initialize the logger
+    """
+
+    logFile = os.path.join(PROJECTDIR, LOGFILE)
+    logModeDict = {
+        'INFO': logging.INFO,
+        'WARNING': logging.WARNING,
+        'DEBUG': logging.DEBUG,
+        'ERROR': logging.ERROR
+        }
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logModeDict[LOG_MODE])
+
+    fh = logging.FileHandler(logFile)
+    fh.setLevel(logModeDict[LOG_MODE])
+    ch = logging.StreamHandler(sys.stdout)
+    ch.setLevel(logModeDict[LOG_MODE])
+
+    formatterFh = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - ' +
+                                    '%(funcName)s - %(lineno)d - %(message)s')
+    formatterCh = logging.Formatter(
+        '%(message)s')
+    fh.setFormatter(formatterFh)
+    ch.setFormatter(formatterCh)
+
+    logger.addHandler(fh)
+    logger.addHandler(ch)
+
+    return logger
+
+
+# initialize the logger
+logger = logger_def()
 
 try:
     # compile and load the c-version
@@ -20,14 +71,13 @@ try:
     #pyximport.install()
     import ARLreader.fast_funcs as fast_funcs
     fastfuncsavail = True
-    print("fast_funcs available")
+    logger.info("fast_funcs available")
 except:
     # use the numpy only version
     fastfuncsavail = False
-    print("fast_funcs not available")
+    logger.info("fast_funcs not available")
 
 
-gridtup = collections.namedtuple('gridtup', 'lats, lons')
 
 def argnearest(array, value):
     """find the index of the nearest value in a sorted array
@@ -338,9 +388,9 @@ def calc_p_from_sigma(sigma, p_sfc):
     """
     A = np.floor(sigma)
     B = sigma - A
-    print("A", A)
-    print("B", B)
-    print('pressure ', A+(B*p_sfc))
+    logger.info("A {}".format(A))
+    logger.info("B {}".format(B))
+    logger.info('pressure {}'.format(A+(B*p_sfc)))
     return  A+(B*p_sfc)
 
 
@@ -425,7 +475,7 @@ class reader():
             unpacked = b''.join(struct.unpack(50*'s',content[:50]))
             index_info = split_format(6*'i2,'+'s2,s4,i4,f14,f14', unpacked)
             indexinfo = convertindexlist(index_info)
-            print('indexinfo ', indexinfo)
+            logger.info('indexinfo '.format(' '.join(map(str, indexinfo))))
             self.indexinfo = indexinfo
             unpacked = b''.join(struct.unpack_from(108*"s",content[:], 50))
             header_format = 's4,i3,i2,'+12*'f7,'+3*'i3,'+'i2,i4'
@@ -434,8 +484,8 @@ class reader():
                           'minDatatime': header[2], 'griddef': header[3:15],
                           'Nx': header[15], 'Ny': header[16], 'Nz': header[17],
                           'Coordzflag': header[18], 'headerlength': header[19]}
-            print('raw header ', header)
-            print('headerinfo ', headerinfo)
+            logger.info('raw header {}'.format(' '.join(map(str, header))))
+            logger.info('headerinfo {}'.format(' '.join(map(str, headerinfo))))
             assert headerinfo['source'] in ['GDAS', 'GFSG', 'GFSQ'], 'other sources than gdas not supported yet'
             self.headerinfo = headerinfo
             if headerinfo['Nx'] == 720 and headerinfo['Ny'] == 361:
@@ -487,19 +537,19 @@ class reader():
             recordinfo, grid, data
         """
         assert hour%3 == 0, 'Other time resolution than 3h not supported yet.'
-        print(self.levels, level)
+        logger.info('{} {}'.format(self.levels, level))
         varlist_at_level = list(map(lambda x: x[0], get_lvl_index(self.levels, level)[1]['vars']))
         assert variable in varlist_at_level, 'Variable not available at this level. Only: ' + str(varlist_at_level)
         bin_index = calc_index(self.indexinfo, self.headerinfo, self.levels, day, hour, level, variable)
-        print("bin index", bin_index)
+        logger.info("bin index {}".format(bin_index))
         recinfo, data = read_data(self.fname, bin_index, self.headerinfo)
-        print('recordinfo ', recinfo)
+        logger.info('recordinfo {}'.format(recinfo))
         assert all([recinfo.name == variable, recinfo.d == day, recinfo.h == hour]), \
             'Something went wrong while reading file'
 
         grid = self.grid
         if truelon:
-            print('convert to the true longitude coordinates')
+            logger.info('convert to the true longitude coordinates')
             data = np.roll(data, -181, axis=0)
             lons = np.roll(self.grid.lons, -181, axis=0)
             lons[lons > 180] -= 360.
@@ -527,12 +577,12 @@ class reader():
         #assert np.all(np.diff(self.grid.lats) == 1)
         if coord[1] < 0:
             coord = (coord[0], coord[1]+360)
-        print(coord)
+        logger.info(coord)
         latindex = argnearest(self.grid.lats, coord[0])
         lonindex = argnearest(self.grid.lons, coord[1])
-        print("latindex, lonindex ", latindex, lonindex)
-        print(self.grid.lats[latindex])
-        print(self.grid.lons[lonindex])
+        logger.info("latindex, lonindex {} {}".format(latindex, lonindex))
+        logger.info(self.grid.lats[latindex])
+        logger.info(self.grid.lons[lonindex])
         
         zeros = np.zeros((self.headerinfo['Nz']-1))
         if self.resolution == 1.0:
@@ -580,11 +630,11 @@ class reader():
             f.seek(bin_index, 0)
             unpacked = b''.join(struct.unpack(50*'s', f.read(50)))
             indexinfo = convertindexlist(split_format(6*'i2,'+'s2,s4,i4,f14,f14', unpacked))
-        print('indexinfo at timestep', indexinfo)
+        logger.info('indexinfo at timestep {}'.format(indexinfo))
         
         # skip the surface level
         for i in range(1, self.headerinfo['Nz']):
-            print("reading level ", i, " of ", self.headerinfo['Nz'])
+            logger.info("reading level {} of {}".format(i, self.headerinfo['Nz']))
             for variable in map(lambda x: x[0], self.levels[i]['vars']):
             #for variable in ['HGTS']:
                 level = self.levels[i]['level']
@@ -601,42 +651,42 @@ class reader():
 
         if self.resolution == 0.5:
             # calculate the heights from hypsometric formula
-            print("p from sigma ", calc_p_from_sigma(profile["SIGMA"], sfc_pres))
+            logger.info("p from sigma {} {}".format(calc_p_from_sigma(profile["SIGMA"], sfc_pres)))
             temps = np.concatenate(([sfc_temp], profile['TEMP']))
-            print('temperatures', temps)
+            logger.info('temperatures {}'.format(temps))
             layer_mean_temp = temps[:-1]+(temps[1:]-temps[:-1])/2.
-            print('layer mean', layer_mean_temp)
+            logger.info('layer mean {}'.format(layer_mean_temp))
             pres = np.concatenate(([sfc_pres], profile['PRES']))
             Rd = 287.04
             g = 9.81
             deltah = Rd/g*layer_mean_temp*np.log(pres[:-1]/pres[1:])
-            print('delta h', deltah)
-            print('heights', np.cumsum(deltah))
+            logger.info('delta h {}'.format(deltah))
+            logger.info('heights {}'.format(np.cumsum(deltah)))
             profile['HGTS'] = np.cumsum(deltah)
             profile['PRSS'] = profile['PRES']
             profile['RELH'] = rh_from_q(profile['PRSS'], profile['SPHU'], profile['TEMP'])
 
-            print(profile)
+            logger.info(profile)
             # calculate the relative humidity..
 
         if self.resolution == 0.25:
             # calculate the heights from hypsometric formula
-            print("p from sigma ", calc_p_from_sigma(profile["SIGMA"], sfc_pres))
+            logger.info("p from sigma {} {}".format(calc_p_from_sigma(profile["SIGMA"], sfc_pres)))
             temps = np.concatenate(([sfc_temp], profile['TEMP']))
-            print('temperatures', temps)
+            logger.info('temperatures {}'.format(temps))
             layer_mean_temp = temps[:-1]+(temps[1:]-temps[:-1])/2.
-            print('layer mean', layer_mean_temp)
+            logger.info('layer mean {}'.format(layer_mean_temp))
             pres = np.concatenate(([sfc_pres], profile['PRES']))
             Rd = 287.04
             g = 9.81
             deltah = Rd/g*layer_mean_temp*np.log(pres[:-1]/pres[1:])
             deltah = np.abs(deltah)
-            print('delta h', deltah)
-            print('heights', np.cumsum(deltah))
+            logger.info('delta h {}'.format(deltah))
+            logger.info('heights {}'.format(np.cumsum(deltah)))
             profile['HGTS'] = np.cumsum(deltah)
             profile['PRSS'] = profile['PRES']
 
-            print(profile)
+            logger.info(profile)
             # calculate the relative humidity..
         
         sfcdata = {}
@@ -648,3 +698,327 @@ class reader():
                              self.grid.lats[latindex:latindex+2], self.grid.lons[lonindex:lonindex+2], coord)
                 sfcdata[sfcvar] = val
         return profile, sfcdata, indexinfo, (latindex, lonindex)
+
+
+class Downloader():
+    """
+    Download the global GDAS1 file from ARL server.
+    """
+
+    def __init__(self, saveFolder, *args, bufferSize=10*1024, flagForce=False):
+        """
+        Downloader initialization.
+
+        Parameters
+        ----------
+        saveFolder: str
+        folder for saving the GDAS1 global dataset.
+
+        Keywords
+        --------
+        bufferSize: integer
+        buffer size for the downloading queue.
+        flagForce: boolean
+        flag to control whether to overwrite the GDAS1 gobal dataset.
+
+        History
+        -------
+        2019-09-30. First edition by Zhenping
+        """
+
+        self.ftpHost = FTPHost
+        self.ftpFolder = FTPFolder
+        self.buffer = bufferSize
+        self.dlSize = 0   # downloaded bytes counter
+        self.flagForce = flagForce
+        if os.path.exists(saveFolder):
+            self.saveFolder = saveFolder
+        else:
+            os.mkdir(saveFolder)
+            self.saveFolder = saveFolder
+
+    def startConnection(self):
+        """
+        start the connection with the FTP server.
+        """
+
+        try:
+            self.ftp = FTP(self.ftpHost)
+            self.ftp.login()
+            logger.info(self.ftp.getwelcome())
+            # open the GDAS1 folder
+            self.ftp.cwd(self.ftpFolder)
+        except Exception as e:
+            logger.error('Failure in FTP connection.')
+            raise e
+
+    def closeConnection(self):
+        self.ftp.close()
+
+    def checkFiles(self, dt):
+        """
+        check whether the GDAS1 file for the given time, has been saved in
+        you local machine.
+        """
+
+        file = fname_from_date(dt)
+        if os.path.exists(os.path.join(self.saveFolder, file)):
+            return True
+        else:
+            return False
+
+    def download(self, dt):
+        """
+        Download the GDAS1 file.
+        """
+
+        dlFile = fname_from_date(dt)
+        self.dlSize = 0
+
+        # check whether the file exists
+        flag = False
+        if self.checkFiles(dt) and not self.flagForce:
+            logger.warn('{file} exists in {folder}.'.format(
+                file=dlFile, folder=self.saveFolder))
+            return
+        else:
+            # connect the server
+            self.startConnection()
+
+            for file in self.ftp.nlst():
+                if file == dlFile:
+                    flag = True
+
+        lastDisSize = 0
+
+        def dlCallback(data, dlFile, fileSize, f):
+            """
+            Display the download percentage.
+            """
+
+            nonlocal lastDisSize
+            self.dlSize = self.dlSize + len(data)
+            if (self.dlSize - lastDisSize) >= (fileSize * 0.005):
+                logger.info('Download {file} {percentage: 04.1f}%'.format(
+                    file=dlFile, percentage=(self.dlSize / fileSize) * 100))
+                lastDisSize = self.dlSize
+            f.write(data)
+
+        if flag:
+            self.ftp.sendcmd("TYPE i")    # Switch to Binary mode
+            fileSize = self.ftp.size(dlFile)
+            self.ftp.sendcmd("TYPE a")    # Swich back to Ascii mode
+
+            with open(os.path.join(self.saveFolder, dlFile), 'wb') as fHandle:
+                self.ftp.retrbinary(
+                    'RETR {file}'.format(file=dlFile),
+                    lambda block: dlCallback(
+                                                block,
+                                                dlFile,
+                                                fileSize,
+                                                fHandle
+                                            ),
+                    blocksize=self.buffer
+                    )
+        else:
+            logger.warn(
+                '{file} doesn\'t exist in the server.'.format(file=dlFile)
+                )
+
+        self.closeConnection()
+
+
+class ArgumentParser(argparse.ArgumentParser):
+    """
+    Override the error message for argparse.
+
+    reference
+    ---------
+    https://stackoverflow.com/questions/5943249/python-argparse-and-controlling-overriding-the-exit-status-code/5943381
+    """
+
+    def _get_action_from_name(self, name):
+        """Given a name, get the Action instance registered with this parser.
+        If only it were made available in the ArgumentError object. It is
+        passed as it's first arg...
+        """
+        container = self._actions
+        if name is None:
+            return None
+        for action in container:
+            if '/'.join(action.option_strings) == name:
+                return action
+            elif action.metavar == name:
+                return action
+            elif action.dest == name:
+                return action
+
+    def error(self, message):
+        exc = sys.exc_info()[1]
+        if exc:
+            exc.argument = self._get_action_from_name(exc.argument_name)
+            raise exc
+        super(ArgumentParser, self).error(message)
+
+
+def extractorStation(year, month, day, hour, lat, lon, station, *args,
+                     saveFolder='',
+                     globalFolder='',
+                     force=False):
+    """
+    extract the GDAS1 profile for a given coordination and time.
+    """
+
+    if (not os.path.exists(saveFolder)):
+        logger.error('{} does not exist.'.format(saveFolder))
+        logger.error('Please set the folder for saving the GDAS1 profiles.')
+        raise ValueError
+
+    if (not os.path.exists(globalFolder)):
+        logger.error('{} does not exist.'.format(globalFolder))
+        logger.error('Please specify the folder of the GDAS1 global files.')
+        raise ValueError
+
+    dt = datetime.datetime(year, month, day, hour)
+
+    globalFile = fname_from_date(dt)
+    # download GDAS1 global dataset
+    logger.warn('Global file does not exist. Check {file}.'.
+            format(file=globalFile))
+    logger.info('Start to download {}'.format(globalFile))
+    downloader = Downloader(globalFolder, flagForce=force)
+    downloader.download(dt)
+
+    # extract the profile
+    profile, sfcdata, indexinfo, ind = reader(
+            os.path.join(globalFolder, globalFile)
+        ).load_profile(day, hour, (lat, lon))
+
+    # write to ASCII file
+    profileFile = '{station}_{lat:6.2f}_{lon:6.2f}_{date}_{hour}.gdas1'.format(
+                                station=station,
+                                lat=lat,
+                                lon=lon,
+                                date=dt.strftime('%Y%m%d'),
+                                hour=dt.strftime('%H')
+                                )
+    write_profile(
+                        os.path.join(saveFolder, profileFile),
+                        indexinfo,
+                        ind,
+                        (lat, lon),
+                        profile,
+                        sfcdata
+                    )
+
+    logger.info('Finish writing profie {}'.format(profileFile))
+
+
+def main():
+    """
+    Command line interface.
+    """
+    # Define the command line arguments.
+    description = 'extract the GDAS1 profile from GDAS1 global binary data.'
+    parser = ArgumentParser(
+                                prog='gdas1_ext',
+                                description=description,
+                                formatter_class=RawTextHelpFormatter
+                            )
+
+    # Setup the arguments
+    helpMsg = "start time of your interests (yyyymmdd-HHMMSS)." +\
+              "\ne.g.20151010-120000"
+    parser.add_argument("-s", "--start_time",
+                        help=helpMsg,
+                        dest='start_time',
+                        default='20990101-120000')
+    helpMsg = "stop time of your interests (yyyymmdd-HHMMSS)." +\
+              "\ne.g.20151010-120000"
+    parser.add_argument("-e", "--end_time",
+                        help=helpMsg,
+                        dest='end_time',
+                        default='20990101-120000')
+    helpMsg = "latitude of your station. (-90, 90).\n" +\
+              "Default: 30.533721"
+    parser.add_argument("--latitude",
+                        help=helpMsg,
+                        dest='latitude',
+                        default=30.533721,
+                        type=float)
+    helpMsg = "longitude of your station. (0, 360).\n" +\
+              "Default: 114.367216"
+    parser.add_argument("--longitude",
+                        help=helpMsg,
+                        dest='longitude',
+                        default=114.367216,
+                        type=float)
+    helpMsg = "station name.\n" +\
+              "Default: wuhan"
+    parser.add_argument("--station",
+                        help=helpMsg,
+                        dest='station',
+                        default='wuhan',
+                        type=str)
+    helpMsg = "folder for saving the GDAS1 global files.\n" +\
+              "e.g., 'C:\\Users\\zhenping\\Desktop\\global'"
+    parser.add_argument("-f", "--global_folder",
+                        help=helpMsg,
+                        dest='global_folder',
+                        default='')
+    helpMsg = "folder for saving the extracted profiles\n" +\
+              "e.g., 'C:\\Users\\zhenping\\Desktop\\wuhan'"
+    parser.add_argument("-o", "--profile_folder",
+                        help=helpMsg,
+                        dest='profile_folder',
+                        default='')
+    helpMsg = "force to download the GDAS1 global dataset (not suggested)"
+    parser.add_argument("--force",
+                        help=helpMsg,
+                        dest='force',
+                        action='store_true')
+
+    # if no input arguments
+    if len(sys.argv) == 1:
+        parser.print_help(sys.stderr)
+        sys.exit(1)
+
+    try:
+        args = parser.parse_args()
+    except argparse.ArgumentError as e:
+        # error info can be obtained by using e.argument_name and e.message
+        logger.error('Error in parsing the input arguments. Please check ' +
+                     'your inputs.\n{message}'.format(message=e.message))
+        raise ValueError
+
+    # run the command
+    # extract gdas1 profile
+    start = datetime.datetime.strptime(args.start_time, '%Y%m%d-%H%M%S')
+    end = datetime.datetime.strptime(args.end_time, '%Y%m%d-%H%M%S')
+    hours = (end-start).days*24 + (end-start).seconds/3600
+    timeList = [start + datetime.timedelta(hours=3*x)
+                for x in range(0, int(hours/3))]   # temporal interval
+                                                   # 3-hour
+    saveFolder = args.profile_folder
+    globalFolder = args.global_folder
+    longitude = args.longitude
+    latitude = args.latitude
+    station_name = args.station
+
+    for time in timeList:
+        extractorStation(
+                        time.year,
+                        time.month,
+                        time.day,
+                        time.hour,
+                        longitude,
+                        latitude,
+                        station_name,
+                        saveFolder=saveFolder,
+                        globalFolder=globalFolder,
+                        force=args.force
+                     )
+
+
+if __name__ == '__main__':
+    main()

@@ -20,3 +20,10 @@ build/
 
 *.so
 *.c
+
+my_example/
+dist/
+build/
+*.egg-info/
+my_example/
+*log
