@@ -921,7 +921,7 @@ def main():
     # Define the command line arguments.
     description = 'extract the GDAS1 profile from GDAS1 global binary data.'
     parser = ArgumentParser(
-                                prog='gdas1_ext',
+                                prog='ARLreader',
                                 description=description,
                                 formatter_class=RawTextHelpFormatter
                             )
