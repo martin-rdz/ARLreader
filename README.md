@@ -69,7 +69,7 @@ ARLreader -h   # prompt up the help
 
 Below is the help messages for using `ARLreader`:
 ```text
-usage: gdas1_ext [-h] [-s START_TIME] [-e END_TIME] [--latitude LATITUDE]
+usage: ARLreader [-h] [-s START_TIME] [-e END_TIME] [--latitude LATITUDE]
                  [--longitude LONGITUDE] [--station STATION]
                  [-f GLOBAL_FOLDER] [-o PROFILE_FOLDER] [--force]
 
