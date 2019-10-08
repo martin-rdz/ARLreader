@@ -62,7 +62,7 @@ Ar.write_profile('testfile.txt', indexinfo, ind, (51.3, 12.4), profile, sfcdata)
 Get the filename from a datetime `Ar.fname_from_date(datetime.datetime(2014, 4, 3))`.
 
 
-![example](examples.png)
+![example](img/comparison_GDAS_radiosonde.png)
 
 
 
