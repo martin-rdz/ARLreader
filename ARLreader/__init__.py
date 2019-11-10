@@ -1157,7 +1157,7 @@ def extractorStation(year, month, day, hour, lat, lon, station, *args,
         ).load_profile(day, hour, (lat, lon))
 
     # write to ASCII file
-    profileFile = '{station}_{lat:6.2f}_{lon:6.2f}_{date}_{hour}.gdas1'.format(
+    profileFile = '{station}_{lat:06.2f}_{lon:06.2f}_{date}_{hour}.gdas1'.format(
                                 station=station,
                                 lat=lat,
                                 lon=lon,
