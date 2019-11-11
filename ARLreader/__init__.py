@@ -1061,8 +1061,11 @@ class Downloader():
             nonlocal lastDisSize
             self.dlSize = self.dlSize + len(data)
             if (self.dlSize - lastDisSize) >= (fileSize * 0.005):
-                logger.info('Download {file} {percentage: 04.1f}%'.format(
-                    file=dlFile, percentage=(self.dlSize / fileSize) * 100))
+                logger.info('[{time}]Download {file} {percentage: 04.1f}%'.
+                format(
+                    time=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                    file=dlFile,
+                    percentage=(self.dlSize / fileSize) * 100))
                 lastDisSize = self.dlSize
             f.write(data)
 
