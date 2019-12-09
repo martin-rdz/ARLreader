@@ -92,7 +92,7 @@ def argnearest(array, value):
     if not i == array.shape[0] - 1 \
             and np.abs(array[i] - value) > np.abs(array[i + 1] - value):
         i = i + 1
-    return i
+    return (i + 1)
 
 
 def vapor_press(p, mr):
