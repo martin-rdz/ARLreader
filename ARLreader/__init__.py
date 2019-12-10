@@ -1062,10 +1062,11 @@ class Downloader():
             self.dlSize = self.dlSize + len(data)
             if (self.dlSize - lastDisSize) >= (fileSize * 0.005):
                 logger.info('[{time}]Download {file} {percentage: 04.1f}%'.
-                format(
-                    time=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                    file=dlFile,
-                    percentage=(self.dlSize / fileSize) * 100))
+                            format(
+                                time=datetime.datetime.now().
+                                strftime('%Y-%m-%d %H:%M:%S'),
+                                file=dlFile,
+                                percentage=(self.dlSize / fileSize) * 100))
                 lastDisSize = self.dlSize
             f.write(data)
 
@@ -1129,7 +1130,8 @@ class ArgumentParser(argparse.ArgumentParser):
 def extractorStation(year, month, day, hour, lat, lon, station, *args,
                      saveFolder='',
                      globalFolder='',
-                     force=False):
+                     force=False,
+                     flag_create_subfolder=False):
     """
     extract the GDAS1 profile for a given coordination and time.
     """
@@ -1160,21 +1162,36 @@ def extractorStation(year, month, day, hour, lat, lon, station, *args,
         ).load_profile(day, hour, (lat, lon))
 
     # write to ASCII file
-    profileFile = '{station}_{lat:06.2f}_{lon:06.2f}_{date}_{hour}.gdas1'.format(
+    profileFile = '{station}_{lat:06.2f}_{lon:06.2f}_{date}_{hr}.gdas1'.format(
                                 station=station,
                                 lat=lat,
                                 lon=lon,
                                 date=dt.strftime('%Y%m%d'),
-                                hour=dt.strftime('%H')
+                                hr=dt.strftime('%H')
                                 )
-    write_profile(
+    if flag_create_subfolder:
+        # create create_subfolder
+        subpath = os.path.join(
+            saveFolder, dt.strftime('%Y'), dt.strftime('%m'))
+        os.makedirs(subpath)
+
+        write_profile(
+                        os.path.join(subpath, profileFile),
+                        indexinfo,
+                        ind,
+                        (lat, lon),
+                        profile,
+                        sfcdata
+                     )
+    else:
+        write_profile(
                         os.path.join(saveFolder, profileFile),
                         indexinfo,
                         ind,
                         (lat, lon),
                         profile,
                         sfcdata
-                    )
+                     )
 
     logger.info('Finish writing profie {}'.format(profileFile))
 
@@ -1242,6 +1259,12 @@ def main():
                         help=helpMsg,
                         dest='force',
                         action='store_true')
+    helpMsg = "create subfolder structure to save the profiles." +\
+              "(yyyy/mm/profiles)"
+    parser.add_argument("--create_subfolder",
+                        help=helpMsg,
+                        dest='flag_create_subfolder',
+                        action='store_true')
 
     # if no input arguments
     if len(sys.argv) == 1:
@@ -1280,7 +1303,8 @@ def main():
                         station_name,
                         saveFolder=saveFolder,
                         globalFolder=globalFolder,
-                        force=args.force
+                        force=args.force,
+                        flag_create_subfolder=args.flag_create_subfolder
                      )
 
 
