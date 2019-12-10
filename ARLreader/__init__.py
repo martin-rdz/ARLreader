@@ -80,19 +80,24 @@ except Exception as e:
 
 
 def argnearest(array, value):
-    """find the index of the nearest value in a sorted array
+    """find the index of the two nearest values in a sorted array
     for example time or range axis
     Args:
         array (np.array): sorted array with values
         value: value to find
     Returns:
-        index: integer
+        i (integer): the index of the nearest point.
+        ii (integer): the index of the second nearest point.
     """
-    i = np.searchsorted(array, value) - 1
-    if not i == array.shape[0] - 1 \
-            and np.abs(array[i] - value) > np.abs(array[i + 1] - value):
-        i = i + 1
-    return (i + 1)
+    indexRight = np.searchsorted(array, value)
+    indexLeft = indexRight - 1
+    if np.abs(array[indexLeft] - value) > np.abs(array[indexRight] - value):
+        i = indexRight
+        ii = indexLeft
+    else:
+        i = indexLeft
+        ii = indexRight
+    return i, ii
 
 
 def vapor_press(p, mr):
@@ -499,8 +504,8 @@ def write_profile(fname, headerinfo, ind, coord, profile, sfcdata):
             ))
 
         f.write(' Used Nearest Grid Point ( {:3d}, {:3d}) to Lat:   {:5.2f}, Lon:    {:5.2f}\n'.format(
-                    ind[1],
-                    ind[0],
+                    ind[1] + 1,
+                    ind[0] + 1,
                     coord[0],
                     coord[1]
                     ))
@@ -697,7 +702,7 @@ class reader():
 
         return recinfo, grid, data
 
-    def load_profile(self, day, hour, coord, sfc=False):
+    def load_profile(self, day, hour, coord, sfc=False, flag_interp=False):
         """
         return the full field (recinfo, self.grid, data) for a given level
         and variable
@@ -707,6 +712,8 @@ class reader():
             hour (int): selected hour
             coord: coordinates (lat, lon)
             sfc (optional, bool): include surface data
+            flag_interp (optional, bool): flag to control whether to apply
+                                          2-D interpolation
 
         Returns:
             profile, sfcdata, indexinfo, (latindex, lonindex)
@@ -715,8 +722,8 @@ class reader():
         if coord[1] < 0:
             coord = (coord[0], coord[1]+360)
         logger.info(coord)
-        latindex = argnearest(self.grid.lats, coord[0])
-        lonindex = argnearest(self.grid.lons, coord[1])
+        latindex, lat2closeindex = argnearest(self.grid.lats, coord[0])
+        lonindex, lon2closeindex = argnearest(self.grid.lons, coord[1])
         logger.info("latindex, lonindex {} {}".format(latindex, lonindex))
         logger.info(self.grid.lats[latindex])
         logger.info(self.grid.lons[lonindex])
@@ -881,7 +888,20 @@ class reader():
                     self.headerinfo,
                     stopat=(latindex+1, lonindex+1)
                     )
-                val = data[lonindex, latindex]
+
+                # interpolate the data
+                if ~ flag_interp:
+                    val = data[lonindex, latindex]
+                else:
+                    latslice = slice(min([latindex, lat2closeindex]),
+                                     max([latindex, lat2closeindex]))
+                    lonslice = slice(min([lonindex, lon2closeindex]),
+                                     max([lonindex, lon2closeindex]))
+                    val = interp(
+                        data[lonslice, latslice],
+                        self.grid.lats[latslice],
+                        self.grid.lons[lonslice], coord)
+
                 profile[variable][i-1] = val
                 profile[press_variable][i-1] = level
 
@@ -1131,7 +1151,8 @@ def extractorStation(year, month, day, hour, lat, lon, station, *args,
                      saveFolder='',
                      globalFolder='',
                      force=False,
-                     flag_create_subfolder=False):
+                     flag_create_subfolder=False,
+                     flag_interp=False):
     """
     extract the GDAS1 profile for a given coordination and time.
     """
@@ -1159,7 +1180,7 @@ def extractorStation(year, month, day, hour, lat, lon, station, *args,
     # extract the profile
     profile, sfcdata, indexinfo, ind = reader(
             os.path.join(globalFolder, globalFile)
-        ).load_profile(day, hour, (lat, lon))
+        ).load_profile(day, hour, (lat, lon), flag_interp=flag_interp)
 
     # write to ASCII file
     profileFile = '{station}_{lat:06.2f}_{lon:06.2f}_{date}_{hr}.gdas1'.format(
@@ -1173,7 +1194,7 @@ def extractorStation(year, month, day, hour, lat, lon, station, *args,
         # create create_subfolder
         subpath = os.path.join(
             saveFolder, dt.strftime('%Y'), dt.strftime('%m'))
-        os.makedirs(subpath)
+        os.makedirs(subpath, exist_ok=True)
 
         write_profile(
                         os.path.join(subpath, profileFile),
@@ -1265,6 +1286,11 @@ def main():
                         help=helpMsg,
                         dest='flag_create_subfolder',
                         action='store_true')
+    helpMsg = "interpolate the data with bi-linear interpolation."
+    parser.add_argument("--interp",
+                        help=helpMsg,
+                        dest='flag_interp',
+                        action='store_true')
 
     # if no input arguments
     if len(sys.argv) == 1:
@@ -1304,7 +1330,8 @@ def main():
                         saveFolder=saveFolder,
                         globalFolder=globalFolder,
                         force=args.force,
-                        flag_create_subfolder=args.flag_create_subfolder
+                        flag_create_subfolder=args.flag_create_subfolder,
+                        flag_interp=args.flag_interp
                      )
 
 
