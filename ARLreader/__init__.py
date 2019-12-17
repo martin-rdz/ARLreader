@@ -1025,7 +1025,7 @@ class Downloader():
         """
 
         try:
-            self.ftp = FTP(self.ftpHost)
+            self.ftp = FTP(self.ftpHost, timeout=300)
             self.ftp.login()
             logger.info(self.ftp.getwelcome())
             # open the GDAS1 folder
