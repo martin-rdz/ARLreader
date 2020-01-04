@@ -1275,11 +1275,6 @@ def main():
                         help=helpMsg,
                         dest='profile_folder',
                         default='')
-    helpMsg = "force to download the GDAS1 global dataset (not suggested)"
-    parser.add_argument("--force",
-                        help=helpMsg,
-                        dest='force',
-                        action='store_true')
     helpMsg = "create subfolder structure to save the profiles." +\
               "(yyyy/mm/profiles)"
     parser.add_argument("--create_subfolder",
@@ -1290,6 +1285,11 @@ def main():
     parser.add_argument("--interp",
                         help=helpMsg,
                         dest='flag_interp',
+                        action='store_true')
+    helpMsg = "force to download the GDAS1 global dataset (not suggested)"
+    parser.add_argument("--force",
+                        help=helpMsg,
+                        dest='force',
                         action='store_true')
 
     # if no input arguments

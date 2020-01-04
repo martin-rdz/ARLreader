@@ -76,7 +76,8 @@ Below is the help messages for using `ARLreader`:
 ```text
 usage: ARLreader [-h] [-s START_TIME] [-e END_TIME] [--latitude LATITUDE]
                  [--longitude LONGITUDE] [--station STATION]
-                 [-f GLOBAL_FOLDER] [-o PROFILE_FOLDER] [--force]
+                 [-f GLOBAL_FOLDER] [-o PROFILE_FOLDER] [--create_subfolder]
+                 [--interp] [--force]
 
 extract the GDAS1 profile from GDAS1 global binary data.
 
@@ -101,6 +102,8 @@ optional arguments:
   -o PROFILE_FOLDER, --profile_folder PROFILE_FOLDER
                         folder for saving the extracted profiles
                         e.g., 'C:\Users\zhenping\Desktop\wuhan'
+  --create_subfolder    create subfolder structure to save the profiles.(yyyy/mm/profiles)
+  --interp              interpolate the data with bi-linear interpolation.
   --force               force to download the GDAS1 global dataset (not suggested)
 ```
 
