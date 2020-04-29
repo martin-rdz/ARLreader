@@ -22,18 +22,8 @@ conda create -n ARLreader   # you can choose other names as well,
 activate ARLreader   # activate the virtual environement
 
 conda install python=3.6   # install python, shipped with `pip`, `setuptools`...
-git clone https://github.com/martin-181/ARLreader.git   # download the code repository
-cd ARLreader
-pip install -r requirements.txt   # install the dependencies for ARLreader
+pip install git+https://github.com/martin-rdz/ARLreader.git
 ```
-
-compile the fast reading functions (optional)
-
-```bash
-python setup.py install
-```
-
-
 
 ### Usage
 
