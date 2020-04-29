@@ -3,10 +3,20 @@
 from Cython.Build import cythonize
 from setuptools import setup
 import numpy
+import os
 
 # Read the long description from the readme file
 with open("readme.md", "rb") as f:
     long_description = f.read().decode("utf-8")
+
+
+# Read the dependencies
+thelibFolder = os.path.dirname(os.path.realpath(__file__))
+requirementPath = os.path.join(thelibFolder, 'requirements.txt')
+install_requires_list = []
+if os.path.isfile(requirementPath):
+    with open(requirementPath) as f:
+        install_requires_list = f.read().splitlines()
 
 
 # Run setup
@@ -32,10 +42,7 @@ setup(name='ARLreader',
           'Intended Audience :: Science/Research',
       ],
       keywords='GDAS1 ARL Hysplit',
-      install_requires=[
-          'setuptools',
-          # -*- Extra requirements: -*-
-      ],
+      install_requires=install_requires_list,
       entry_points={
           'console_scripts': [
               'arlreader=ARLreader:main',
