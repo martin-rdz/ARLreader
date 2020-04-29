@@ -1,12 +1,12 @@
 #!/usr/bin/python3
 
-from Cython.Build import cythonize
+# from Cython.Build import cythonize
 from setuptools import setup
-import numpy
+# import numpy
 import os
 
 # Read the long description from the readme file
-with open("readme.md", "rb") as f:
+with open("README.md", "rb") as f:
     long_description = f.read().decode("utf-8")
 
 
@@ -45,7 +45,7 @@ setup(name='ARLreader',
       install_requires=install_requires_list,
       entry_points={
           'console_scripts': [
-              'arlreader=ARLreader:main',
+              'ARLreader=ARLreader:main',
           ],
       },
       )
