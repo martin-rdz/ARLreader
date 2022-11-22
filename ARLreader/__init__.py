@@ -944,7 +944,7 @@ class reader():
         if self.resolution == 0.5:
             # calculate the heights from hypsometric formula
             logger.info(
-                "p from sigma {} {}".format(
+                "p from sigma {}".format(
                     calc_p_from_sigma(profile["SIGMA"], sfc_pres)
                     )
                 )
