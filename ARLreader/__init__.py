@@ -232,6 +232,8 @@ def fname_from_date(dt):
     # determine the current 7 days
     currentday_start = (week_no - 1) * 7 + 1
     currentDate = datetime.datetime.now()
+    week_no_start = ((currentDate.day - 1) // 7) + 1
+    currentday_start = (week_no_start - 1) * 7 + 1
     currentDate_weekstart = datetime.datetime(
         currentDate.year,
         currentDate.month,
