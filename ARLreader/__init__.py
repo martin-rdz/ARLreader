@@ -400,7 +400,7 @@ def read_data(fname, bin_index, headerinfo, stopat=(-1, -1)):
     return recinfo, data
 
 
-def unpack_data(binarray, nx, ny, initval, exp, prec, stopat=(-1, -1)):
+def unpack_data_old(binarray, nx, ny, initval, exp, prec, stopat=(-1, -1)):
     """
     unpack the binary data with the option to stop at a given index
     """
@@ -439,6 +439,42 @@ def unpack_data(binarray, nx, ny, initval, exp, prec, stopat=(-1, -1)):
                     break
     return data
 
+
+def unpack_data(binarray, nx, ny, initval, exp, prec, stopat=(-1, -1)):
+    """
+    unpack the binary data with the option to stop at a given index
+    """
+
+    # Reshape the array
+    binarray  = np.reshape(binarray,(ny,nx))
+
+    # Calculate the array difference matrix
+    e = (2 ** float(7 - exp))
+    binarray = (binarray - 127) / e
+
+    # Calculate the first row using the initial value
+    first_row = np.cumsum(binarray[:, 0]) + initval
+
+    # Asign the values to the array
+    binarray[:, 0] = first_row
+
+    # Calculate all the rows using the first row. Transpose in order to have an (nx,ny) array
+    data = np.cumsum(binarray, axis=1).T
+
+    data[np.abs(data) < prec] = 0
+
+    if stopat != (-1, -1):
+        nx_min = max(stopat[1] - 1, 0)
+        nx_max = min(stopat[1] + 1, nx)
+        ny_min = max(stopat[0] - 1, 0)
+        ny_max = min(stopat[0] + 1, ny)
+    else:
+        nx_min = 0
+        nx_max = nx
+        ny_min = 0
+        ny_max = ny
+
+    return data[nx_min:nx_max, ny_min:ny_max]
 
 def calc_p_from_sigma(sigma, p_sfc):
     """
