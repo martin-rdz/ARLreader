@@ -6,7 +6,7 @@ Cython==0.29.13
 future==0.17.1
 importlib-metadata==0.23
 more-itertools==7.2.0
-numpy==1.13.3
+numpy==1.22.0
 packaging==19.2
 pefile==2019.4.18
 pluggy==0.13.0
